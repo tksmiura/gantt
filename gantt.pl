@@ -63,7 +63,7 @@ my @holiday = (
 $use_TextVisualWidthPP = 1;
 $Text::VisualWidth::PP::EastAsian = 1;     # East asian ambigious width
 
-$TAB_WITDH        = 8;
+$TAB_WIDTH        = 8;
 
 $COLOR_BG_BLACK   = "\x1b[40m";
 $COLOR_BG_RED     = "\x1b[41m";
@@ -251,40 +251,15 @@ sub width_str {
     }
 }
 
-# my $dt1 = &str2date("2024/01/02");
-# my $dt2 = &str2date("2024/02/04");
+sub fix_width_str {
+    my ($str, $max_width) = @_;
+    my $width = &width_str($str);
 
-# my $delta = &duration($dt1, $dt2);
-# my $d1 = &date2str($dt1);
-# my $dt3 = $dt2->plus_days(5);
-# my $d3 = &date2str($dt3);
-
-# print "$d1 $delta\n";
-# print "$d3\n";
-
-# my $workday = &workdays($dt1, $dt2);
-
-# print "workday $workday\n";
-
-# my $non1 = &count_holiday($dt1, $dt2);
-# my $non2 = &count_holiday($dt1, $dt1);
-# print "test $non1, $non2\n";
-
-# my $dt4 = &add_workday($dt1, 5);
-# my $d4 = &date2str($dt4);
-# print "add workday $d1 +5 $d4\n";
-
-
-# input
-# task1: 2024/11/13-/2024/11/19(0%)
-# task2: 2024/11/12 +5 (40%)
-# task3: after task1 +2
-
-# output
-#          11/11 11/18
-# task1  : __--- --___
-# task2  : _**-- -____
-# task3  : _____ __--_
+    if ($max_width > $width) {
+        $str .= " " x ($max_width - $width);
+    }
+    return $str;
+}
 
 GetOptions('debug' => \$opt_debug, 'color' => \$opt_color);
 
@@ -299,6 +274,8 @@ foreach $infile (@ARGV) {
             my $task = $1;
             my $schedule = $2;
             my $start, $end, $progress = 0;
+
+            $task =~ s/\s*$//;
             if ($schedule =~ /(\d+\/\d+\/\d+)\s*\-\s*(\d+\/\d+\/\d+)/) {
                 $start = &str2date($1);
                 $end =&str2date($2);
@@ -309,9 +286,9 @@ foreach $infile (@ARGV) {
             } elsif ($schedule =~ /after\s+(.*)\+\s*(\d+)/) {
                 my $before = $1;
                 my $days = $2;
-
+                $before =~ s/\s*$//;
                 foreach my $info (@task_list) {
-                    $opt_debug && print Dumper $info;
+                    #$opt_debug && print Dumper $info;
                     $opt_debug && print "debug: $info->[0]\n";
                     if ($info->[0] eq $before) {
                         $opt_debug && print "match $before\n";
@@ -319,6 +296,10 @@ foreach $infile (@ARGV) {
                         $end = &add_workday($start, $days);
                         last;
                     }
+                }
+                if (! defined($start)) {
+                    print "ERROR: $infile: $.: $task : $before is not found\n";
+                    next;
                 }
             } else {
                 print "ERROR: $infile: $.: $task : '$schedule' unmatach\n";
@@ -332,12 +313,20 @@ foreach $infile (@ARGV) {
             push @task_list, \@info;
         }
     }
-    #$opt_debug && print Dumper @task_list;
+    $opt_debug && print "------\n";
+    $opt_debug && print Dumper @task_list;
+    $opt_debug && print "------\n";
 
     close FILE;
 
+    if (@task_list < 1) {
+        print "ERROR: no valid task\n";
+        exit 1;
+    }
+
     # 表示期間を求める
     my $min_day, $max_day;
+    $max_task_name = 9;
     foreach my $info (@task_list) {
         my $task     = $info->[0];
         my $start    = $info->[1];
@@ -346,6 +335,12 @@ foreach $infile (@ARGV) {
         my $start_str = &date2str($start);
         my $end_str = &date2str($end);
         $opt_debug && print "$task : $start_str - $end_str ( $progress % )\n";
+
+        my $width = &width_str($task);
+        if ($max_task_name < $width + 1) {
+            $max_task_name = $width + 1;
+        }
+
         if (! defined($min_day) || $min_day > $start) {
             $min_day = $start;
         }
@@ -359,7 +354,8 @@ foreach $infile (@ARGV) {
     $max_day = $max_day->plus_days(7 - $day);
 
     if ($opt_color) {
-        print "${COLOR_FG_LCYAN}schedule${COLOR_RESET} : ";
+        my $schedule = &fix_width_str("schedule", $max_task_name);
+        print "${COLOR_FG_LCYAN}$schedule${COLOR_RESET}: ";
         my $day = $min_day;
         while ($day < $max_day) {
             my $day_str = &date2str_short($day);
@@ -368,7 +364,6 @@ foreach $infile (@ARGV) {
         }
         print "\n";
 
-        $max_task_name = 9;
         foreach my $info (@task_list) {
             my $task     = $info->[0];
             my $start    = $info->[1];
@@ -377,16 +372,15 @@ foreach $infile (@ARGV) {
             my $workedday = int(&workdays($start, $end) * $progress / 100);
             my $current = $start->plus_days($workedday);
 
-            my $width = &width_str($task);
-            if ($max_task_name > $width) {
-                $task .= " " x ($max_task_name - $width);
-            }
+            $task = &fix_width_str($task, $max_task_name);
             print "${COLOR_FG_LCYAN}$task${COLOR_RESET}: ";
             my $day = $min_day;
             while ($day < $max_day) {
                 if ($day->day_of_week == 7) {
-                } elsif (! &is_workday($day)) {
+                } elsif ($day->day_of_week == 6) {
                     print " ";
+                } elsif (! &is_workday($day)) {
+                    print "${COLOR_BG_LBLACK} ${COLOR_RESET}";
                 } elsif ($day >= $start && $day < $current) {
                     print "${COLOR_BG_LYELLOW} ${COLOR_RESET}";
                 } elsif ($day >= $start && $day <= $end) {
@@ -399,7 +393,9 @@ foreach $infile (@ARGV) {
             print "\n";
         }
     } else {
-        print "schedule : ";
+        $opt_debug && print "debug: max witdh task: $max_task_name\n";
+        my $schedule = &fix_width_str("schedule", $max_task_name);
+        print "${schedule}: ";
         my $day = $min_day;
         while ($day < $max_day) {
             my $day_str = &date2str_short($day);
@@ -408,7 +404,6 @@ foreach $infile (@ARGV) {
         }
         print "\n";
 
-        $max_task_name = 9;
         foreach my $info (@task_list) {
             my $task     = $info->[0];
             my $start    = $info->[1];
@@ -417,10 +412,7 @@ foreach $infile (@ARGV) {
             my $workedday = int(&workdays($start, $end) * $progress / 100);
             my $current = $start->plus_days($workedday);
 
-            my $width = &width_str($task);
-            if ($max_task_name > $width) {
-                $task .= " " x ($max_task_name - $width);
-            }
+            $task = &fix_width_str($task, $max_task_name);
             print "$task: ";
             my $day = $min_day;
             while ($day < $max_day) {

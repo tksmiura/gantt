@@ -1,0 +1,8 @@
+# input
+
+plan  : 2024/10/1 +5
+design: after plan +10
+coding: after design +20
+unit_test: after coding +10
+combined_test:  after unit_test +20
+system_test: after combined_test +10
