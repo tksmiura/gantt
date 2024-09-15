@@ -110,6 +110,7 @@ $COLOR_RESET      = "\x1b[0m";
 $TERM_WIDTH       = `tput cols`;
 $TERM_HEIGHT      = `tput lines`;
 
+
 # 文字列(YYYY/MM/DD)を日付に変換
 sub str2date {
     my ($str_date) = @_;
@@ -119,6 +120,19 @@ sub str2date {
         year => $date[0],
         month => $date[1],
         day => $date[2],
+        );
+    return $dt;
+}
+
+sub str2date_short {
+    my ($str_date) = @_;
+    my @date = split(/\//, $str_date);
+    my ($now) = Time::Moment->now;
+
+    my $dt = Time::Moment->new(
+        year => $now->year,
+        month => $date[0],
+        day => $date[1],
         );
     return $dt;
 }
@@ -268,15 +282,43 @@ sub fix_width_str {
     return $str;
 }
 
-GetOptions('debug' => \$opt_debug, 'color' => \$opt_color, 'now=s' => \$opt_now);
 
-if ($opt_now) {
-    if ($opt_now =~ /\d+\/\d+\/\d+/) {
-        $now = &str2date($opt_now);
+sub param_date {
+    my ($date) = @_;
+    my $dt;
+    if ($date =~ /\d+\/\d+\/\d+/) {
+        $dt = &str2date($date);
+    } elsif ($opt_now =~ /\d+\/\d+/) {
+        $dt = &str2date_short($date);
     } else {
-        print "ERROR: can not '$opt_now'\n";
+        print "ERROR: can not parse '$date'\n";
         exit 1;
     }
+    return $dt;
+}
+
+GetOptions('debug' => \$opt_debug, 'color' => \$opt_color,
+           'now=s' => \$opt_now, 'start=s' => \$opt_start, 'end=s' => \$opt_end);
+
+if ($opt_now) {
+    $now = &param_date($opt_now);
+
+    $opt_debug && ($now_str = &date2str($now));
+    $opt_debug && print "NOW=$now_str\n";
+}
+
+if ($opt_start) {
+    $dt_start = &param_date($opt_start);
+
+    $opt_debug && ($str = &date2str($dt_start));
+    $opt_debug && print "START=$str\n";
+}
+
+if ($opt_end) {
+    $dt_end = &param_date($opt_end);
+
+    $opt_debug && ($str = &date2str($dt_end));
+    $opt_debug && print "END=$str\n";
 }
 
 foreach $infile (@ARGV) {
@@ -364,6 +406,14 @@ foreach $infile (@ARGV) {
             $max_day = $end;
         }
     }
+
+    if (defined($dt_start)) {
+        $min_day = $dt_start;
+    }
+    if (defined($dt_end)) {
+        $max_day = $dt_end;
+    }
+
     my $day = $min_day->day_of_week; # [1=Monday, 7=Sunday]
     $min_day = $min_day->minus_days($day - 1);
     $day = $max_day->day_of_week;
