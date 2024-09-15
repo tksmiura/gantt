@@ -209,9 +209,14 @@ sub is_workday {
 sub add_workday {
     my ($dt, $d) = @_;
     my $dt2 = $dt->plus_days($d - 1);
-    my ($dt2s) = &date2str($dt2);
     my ($workday) = &workdays($dt, $dt2);
-    #print "add_workday $dt2s ($workday)\n";
+    if ($d < 1) {
+        return $dt2;
+    }
+
+    $opt_debug && ($dts = &date2str($dt));
+    $opt_debug && print "add_workday $dts ($d)\n";
+
     while ($workday < $d) {
         $dt2 = $dt2->plus_days(1);
         $dt2s = &date2str($dt2);
@@ -220,6 +225,8 @@ sub add_workday {
             $workday++;
         }
     }
+    $opt_debug && ($dt2s = &date2str($dt2));
+    $opt_debug && print "add_workday return $dt2s\n";
     return $dt2;
 }
 
@@ -261,7 +268,16 @@ sub fix_width_str {
     return $str;
 }
 
-GetOptions('debug' => \$opt_debug, 'color' => \$opt_color);
+GetOptions('debug' => \$opt_debug, 'color' => \$opt_color, 'now=s' => \$opt_now);
+
+if ($opt_now) {
+    if ($opt_now =~ /\d+\/\d+\/\d+/) {
+        $now = &str2date($opt_now);
+    } else {
+        print "ERROR: can not '$opt_now'\n";
+        exit 1;
+    }
+}
 
 foreach $infile (@ARGV) {
     my (@task_list);
@@ -369,24 +385,30 @@ foreach $infile (@ARGV) {
             my $start    = $info->[1];
             my $end      = $info->[2];
             my $progress = $info->[3];
-            my $workedday = int(&workdays($start, $end) * $progress / 100);
-            my $current = $start->plus_days($workedday);
-
+            my $workedday = int((&workdays($start, $end) * $progress / 100) + 0.5);
+            my $current = &add_workday($start, $workedday);
+            $opt_debug && ($cur_day = &date2str($current));
+            $opt_debug && print "debug: $progress $workedday $cur_day\n";
             $task = &fix_width_str($task, $max_task_name);
             print "${COLOR_FG_LCYAN}$task${COLOR_RESET}: ";
             my $day = $min_day;
             while ($day < $max_day) {
+                if (defined($now) && $day == $now) {
+                    $space = "${COLOR_FG_RED}|";
+                } else {
+                    $space = " ";
+                }
                 if ($day->day_of_week == 7) {
                 } elsif ($day->day_of_week == 6) {
-                    print " ";
+                    print "$space";
                 } elsif (! &is_workday($day)) {
-                    print "${COLOR_BG_LBLACK} ${COLOR_RESET}";
-                } elsif ($day >= $start && $day < $current) {
-                    print "${COLOR_BG_LYELLOW} ${COLOR_RESET}";
+                    print "${COLOR_BG_LBLACK}$space${COLOR_RESET}";
+                } elsif ($day >= $start && $day <= $current) {
+                    print "${COLOR_BG_LYELLOW}$space${COLOR_RESET}";
                 } elsif ($day >= $start && $day <= $end) {
-                    print "${COLOR_BG_GREEN} ${COLOR_RESET}";
+                    print "${COLOR_BG_GREEN}$space${COLOR_RESET}";
                 } else {
-                    print "${COLOR_UNDERLINE} ${COLOR_RESET}";
+                    print "${COLOR_UNDERLINE}$space${COLOR_RESET}";
                 }
                 $day = $day->plus_days(1);
             }
@@ -409,8 +431,8 @@ foreach $infile (@ARGV) {
             my $start    = $info->[1];
             my $end      = $info->[2];
             my $progress = $info->[3];
-            my $workedday = int(&workdays($start, $end) * $progress / 100);
-            my $current = $start->plus_days($workedday);
+            my $workedday = int((&workdays($start, $end) * $progress / 100) + 0.5);
+            my $current = &add_workday($start, $workedday);
 
             $task = &fix_width_str($task, $max_task_name);
             print "$task: ";
@@ -418,9 +440,15 @@ foreach $infile (@ARGV) {
             while ($day < $max_day) {
                 if ($day->day_of_week == 7) {
                 } elsif (! &is_workday($day)) {
-                    print " ";
-                } elsif ($day >= $start && $day < $current) {
+                    if (defined($now) && $day == $now) {
+                        print "|";
+                    } else {
+                        print " ";
+                    }
+                } elsif ($day >= $start && $day <= $current) {
                     print "*";
+                } elsif (defined($now) && $day == $now) {
+                    print "|";
                 } elsif ($day >= $start && $day <= $end) {
                     print "-";
                 } else {
