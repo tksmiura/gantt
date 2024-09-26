@@ -499,6 +499,18 @@ if ($opt_end) {
     $opt_debug && print "END=$str\n";
 }
 
+if (@ARGV == 0) {
+	print STDERR <<END_OF_DATA;
+usage: ./gantt.pl [options] file ...
+  options:
+   -o, --output <file name>  : output SVG file
+   -s, --start  <date>       : range start date
+   -e, --end  <date>         : range end date
+   -n, --now  <date>         : current date
+   -c, --color               : use ANSI color escape sequenc
+END_OF_DATA
+}
+
 foreach $infile (@ARGV) {
     my (@task_list);
 
