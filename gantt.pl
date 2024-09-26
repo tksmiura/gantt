@@ -372,6 +372,7 @@ END_OF_DATA
 
 #ライン
 sub Polyline {
+    my($c) = shift(@_);
     my(@lines) = @_;
     my ($x,$y);
     $x = shift(@lines);
@@ -383,7 +384,7 @@ sub Polyline {
         $points = $points . ", $x $y";
     }
 	print OUT <<END_OF_DATA;
-    <polyline points="$points" fill="none" stroke="black" />
+    <polyline points="$points" fill="none" stroke="$c" />
 END_OF_DATA
 }
 
@@ -415,23 +416,27 @@ sub OutputSVG {
 
     &StartPage($all_x, $all_y);
     &Box(0, 0, $all_x, $all_y, "black");
-    &Polyline($WidthTask, 0, $WidthTask, $all_y);
 
-    # 非稼働日(週末)
-    for (my $ix = 5; $ix < $x; $ix += 7) {
-        &BoxF($WidthTask + $ix * $WidthDay, 0,
-              2 * $WidthDay, $all_y,
-              "gray");
+    # 日付線
+    for (my $ix = 0; $ix < $x; $ix ++) {
+        my $d = $min_day->plus_days($ix);
+        my $c = "black";
+        my $top = $HeightDay;
+        if ($d->day_of_week ==1) {
+            $top = 0;
+            $c = "blue";
+        }
+        if ($d->day_of_month == 1) {
+            $top = 0;
+            $c = "green";
+        }
+        &Polyline($c,
+                  $WidthTask + $ix * $WidthDay, $top,
+                  $WidthTask + $ix * $WidthDay, $all_y);
     }
 
     # Header
     &Text(0, $HeightDay, "Task");
-
-    # 日付見出し
-    for (my $ix = 0; $ix < $x; $ix += 7) {
-        my $day = $min_day->plus_days($ix);
-        &TextDate($WidthTask + $ix * $WidthDay, $HeightDay, $day);
-    }
 
     # task
     my $tx = 0;
@@ -442,7 +447,8 @@ sub OutputSVG {
         my $end      = $info->[2];
         my $progress = $info->[3];
 
-        &Polyline(0, $ty,$all_x, $ty);
+        # タスク分割の横線
+        &Polyline("black", 0, $ty,$all_x, $ty);
         &Text($tx, $ty + $HeightDay, $name);
         my $wx0 = &duration($min_day, $start) - 1;
         my $wx1 = &duration($min_day, $end) - 1;
@@ -465,6 +471,21 @@ sub OutputSVG {
         }
 
         $ty += $HeightDay;
+    }
+
+    # 非稼働日
+    for (my $ix = 0; $ix < $x; $ix ++) {
+        my $d = $min_day->plus_days($ix);
+        if (! &is_workday($d)) {
+            &BoxF($WidthTask + $ix * $WidthDay, 0,
+                  $WidthDay, $all_y, "gray");
+        }
+    }
+
+    # 日付見出し
+    for (my $ix = 0; $ix < $x; $ix += 7) {
+        my $day = $min_day->plus_days($ix);
+        &TextDate($WidthTask + $ix * $WidthDay, $HeightDay, $day);
     }
 
     &EndPage();
