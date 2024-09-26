@@ -110,7 +110,12 @@ $COLOR_RESET      = "\x1b[0m";
 $TERM_WIDTH       = `tput cols`;
 $TERM_HEIGHT      = `tput lines`;
 
-
+# SVG Style
+$FontHeight = 10;
+$FontDate = 6;
+$WidthDay = 8;
+$HeightDay = 16;
+$WidthTask = $WidthDay * 16;
 # 文字列(YYYY/MM/DD)を日付に変換
 sub str2date {
     my ($str_date) = @_;
@@ -282,7 +287,7 @@ sub fix_width_str {
     return $str;
 }
 
-
+# 引数の日付を解析
 sub param_date {
     my ($date) = @_;
     my $dt;
@@ -297,8 +302,181 @@ sub param_date {
     return $dt;
 }
 
+###################################################
+# SVG
+
+#Pageの始め
+sub StartPage {
+    my ($width, $height) = @_;
+	print OUT <<END_OF_DATA;
+<?xml version="1.0" standalone="no"?>
+<svg width="$width" height="$height" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <g transform="scale(1.0)">
+END_OF_DATA
+}
+
+#Pageの終わり
+sub EndPage {
+	print OUT <<END_OF_DATA;
+  </g>
+</svg>
+END_OF_DATA
+}
+
+#ボックス
+sub Box {
+    my($x,$y,$w,$h, $c) = @_;
+	print OUT <<END_OF_DATA;
+        <rect x="$x" y="$y" width="$w" height="$h" fill="none" stroke="$c" />
+END_OF_DATA
+}
+
+#ボックス
+sub BoxF {
+    my($x,$y,$w,$h, $c) = @_;
+	print OUT <<END_OF_DATA;
+        <rect x="$x" y="$y" width="$w" height="$h" fill="$c" stroke="none" />
+END_OF_DATA
+}
+
+#角丸のボックス（開始・終了ノード）
+sub RoundBox {
+    my($x,$y,$w,$h, $c) = @_;
+    my ($r) = $h/4;
+	print OUT <<END_OF_DATA;
+        <rect x="$x" y="$y" width="$w" height="$h" rx="$r" fill="$c" stroke="black" />
+END_OF_DATA
+}
+
+#文字列表示（通常サイズ）
+sub Text {
+    my ($x, $y, $text) = @_;
+    my ($text2) = &XMLText($text);
+	print OUT <<END_OF_DATA;
+        <text text-anchor="start" dominant-baseline="text-after-edge" x="$x" y="$y" font-size="$FontHeight" font-family="$FontFamily" >
+            $text2
+        </text>
+END_OF_DATA
+}
+
+#文字列表示（通常サイズ）
+sub TextDate {
+    my ($x, $y, $t) = @_;
+    my ($text2) = date2str_short($t);
+	print OUT <<END_OF_DATA;
+        <text text-anchor="start" dominant-baseline="text-after-edge" x="$x" y="$y" font-size="$FontDate" font-family="$FontFamily" >
+            $text2
+        </text>
+END_OF_DATA
+}
+
+#ライン
+sub Polyline {
+    my(@lines) = @_;
+    my ($x,$y);
+    $x = shift(@lines);
+    $y = shift(@lines);
+    my ($points) = "$x $y";
+    while (@lines) {
+        $x = shift(@lines);
+        $y = shift(@lines);
+        $points = $points . ", $x $y";
+    }
+	print OUT <<END_OF_DATA;
+    <polyline points="$points" fill="none" stroke="black" />
+END_OF_DATA
+}
+
+# XMLの特殊文字変換
+sub XMLText {
+    local($text) =@_;
+    $text =~ s/\&/\&amp\;/g; # '&' → '&amp'
+    $text =~ s/\</\&lt\;/g; # '<' → '&lt'
+    $text =~ s/\>/\&gt\;/g; # '>' → '&gt'
+    return ($text);
+}
+
+# ガントチャート全体を出力
+sub OutputSVG {
+    my ($file, $min_day, $max_day, $t) = @_;
+    my @task = @$t;
+    my $y = @task;
+    my $x = &duration($min_day, $max_day);
+
+    # FILEを開く(utf8)
+    open(OUT, '>:encoding(UTF-8)', $file) || die "Can't open to $file\n";
+
+    $opt_debug && print "OutputSVG $file $y\n";
+    #$opt_debug && print Dumper @task;
+
+    # 全体の枠
+    my $all_x = $WidthTask + $WidthDay * $x;
+    my $all_y = $HeightDay * ($y + 1);
+
+    &StartPage($all_x, $all_y);
+    &Box(0, 0, $all_x, $all_y, "black");
+    &Polyline($WidthTask, 0, $WidthTask, $all_y);
+
+    # 非稼働日(週末)
+    for (my $ix = 5; $ix < $x; $ix += 7) {
+        &BoxF($WidthTask + $ix * $WidthDay, 0,
+              2 * $WidthDay, $all_y,
+              "gray");
+    }
+
+    # Header
+    &Text(0, $HeightDay, "Task");
+
+    # 日付見出し
+    for (my $ix = 0; $ix < $x; $ix += 7) {
+        my $day = $min_day->plus_days($ix);
+        &TextDate($WidthTask + $ix * $WidthDay, $HeightDay, $day);
+    }
+
+    # task
+    my $tx = 0;
+    my $ty = $HeightDay;
+    foreach my $info (@task) {
+        my $name     = $info->[0];
+        my $start    = $info->[1];
+        my $end      = $info->[2];
+        my $progress = $info->[3];
+
+        &Polyline(0, $ty,$all_x, $ty);
+        &Text($tx, $ty + $HeightDay, $name);
+        my $wx0 = &duration($min_day, $start) - 1;
+        my $wx1 = &duration($min_day, $end) - 1;
+
+        #task all
+        &RoundBox($WidthDay * $wx0 + $WidthTask, $ty,
+                  $WidthDay * ($wx1 - $wx0 + 1) , $HeightDay, "slateblue");
+
+        #task current
+        if ($progress > 0) {
+            my $progress_day = &workdays($start, $end) * $progress / 100;
+            my $current = 0;
+            if ($progress_day >= 1) {
+                $current = &duration($start, &add_workday($start, int($progress_day)));
+            }
+            print "$name $progress_day $wx0 - $current\n";
+            &RoundBox($WidthDay * $wx0 + $WidthTask, $ty,
+                      $WidthDay * $current + int(($progress_day - int($progress_day)) * $WidthDay), $HeightDay, "green");
+
+        }
+
+        $ty += $HeightDay;
+    }
+
+    &EndPage();
+
+    close OUT;
+}
+
+###################################################
+
 GetOptions('debug' => \$opt_debug, 'color' => \$opt_color,
-           'now=s' => \$opt_now, 'start=s' => \$opt_start, 'end=s' => \$opt_end);
+           'output=s' => \$opt_svg, 'now=s' => \$opt_now,
+           'start=s' => \$opt_start, 'end=s' => \$opt_end);
 
 if ($opt_now) {
     $now = &param_date($opt_now);
@@ -419,6 +597,13 @@ foreach $infile (@ARGV) {
     $day = $max_day->day_of_week;
     $max_day = $max_day->plus_days(7 - $day);
 
+    # SVGでファイルを作成
+    if ($opt_svg) {
+        &OutputSVG($opt_svg, $min_day, $max_day, \@task_list);
+        exit 0;
+    }
+
+    # Textで表示
     if ($opt_color) {
         my $schedule = &fix_width_str("schedule", $max_task_name);
         print "${COLOR_FG_LCYAN}$schedule${COLOR_RESET}: ";
