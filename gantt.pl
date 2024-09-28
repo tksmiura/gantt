@@ -399,7 +399,7 @@ sub XMLText {
 
 # ガントチャート全体を出力
 sub OutputSVG {
-    my ($file, $min_day, $max_day, $t) = @_;
+    my ($file, $min_day, $max_day, $t, $now) = @_;
     my @task = @$t;
     my $y = @task;
     my $x = &duration($min_day, $max_day);
@@ -413,6 +413,7 @@ sub OutputSVG {
     # 全体の枠
     my $all_x = $WidthTask + $WidthDay * $x;
     my $all_y = $HeightDay * ($y + 1);
+    my $current_x = 0;
 
     &StartPage($all_x, $all_y);
     &Box(0, 0, $all_x, $all_y, "black");
@@ -433,6 +434,12 @@ sub OutputSVG {
         &Polyline($c,
                   $WidthTask + $ix * $WidthDay, $top,
                   $WidthTask + $ix * $WidthDay, $all_y);
+        if (defined($now) && $d == $now) {
+            $current_x = $WidthTask + $ix * $WidthDay + ($WidthDay / 2);
+            $prev_x = $current_x;
+            &BoxF($current_x - 1, 0,
+                  3, $HeightDay, "red");
+        }
     }
 
     # Header
@@ -468,6 +475,30 @@ sub OutputSVG {
             &RoundBox($WidthDay * $wx0 + $WidthTask, $ty,
                       $WidthDay * $current + int(($progress_day - int($progress_day)) * $WidthDay), $HeightDay, "green");
 
+        }
+
+        # イナズマ線
+        if (defined($now) && ($progress == 0 || $progress == 100)) {
+            if ($prev_x != $current_x) {
+                &Polyline("red", $prev_x, $ty - $HeightDay / 2,
+                          $current_x, $ty,
+                          $current_x, $ty + $HeightDay);
+            } else {
+                &Polyline("red", $current_x, $ty, $current_x, $ty + $HeightDay);
+            }
+            $prev_x = $current_x;
+        } else {
+            my $task_x = $WidthDay * ($wx0 + $current) +
+                int(($progress_day - int($progress_day)) * $WidthDay) +
+                $WidthTask;
+            if ($prev_x != $current_x) {
+                &Polyline("red", $prev_x, $ty - $HeightDay /2,
+                          $task_x, $ty + $HeightDay /2);
+            } else {
+                &Polyline("red", $prev_x, $ty,
+                          $task_x, $ty + $HeightDay /2);
+            }
+            $prev_x = $task_x;
         }
 
         $ty += $HeightDay;
@@ -632,7 +663,7 @@ foreach $infile (@ARGV) {
 
     # SVGでファイルを作成
     if ($opt_svg) {
-        &OutputSVG($opt_svg, $min_day, $max_day, \@task_list);
+        &OutputSVG($opt_svg, $min_day, $max_day, \@task_list, $now);
         exit 0;
     }
 
