@@ -1,5 +1,5 @@
-#!/opt/homebrew/bin/perl
 #!/usr/bin/perl
+#!/opt/homebrew/bin/perl
 # MIT License
 # Copyright (c) 2019 TAKESHI MIURA
 # https://github.com/tksmiura/gantt
