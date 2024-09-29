@@ -1,5 +1,5 @@
-#!/usr/bin/perl
 #!/opt/homebrew/bin/perl
+#!/usr/bin/perl
 # MIT License
 # Copyright (c) 2019 TAKESHI MIURA
 # https://github.com/tksmiura/gantt
@@ -482,11 +482,10 @@ sub OutputSVG {
         &Polyline("black", 0, $ty,$all_x, $ty);
         &Text($tx, $ty + $HeightDay, $name);
         my $task_x = $current_x;
-        print &date2str($start) . " " . &date2str($max_day) . "\n";
+        #print &date2str($start) . " " . &date2str($max_day) . "\n";
         if (!($end < $min_day || $start > $max_day)) {
             my $wx0 = 0;
             my $wx1 = 0;
-            print "in\n";
             if ($start >= $min_day) {
                 $wx0 = &duration($min_day, $start) - 1;
             }
