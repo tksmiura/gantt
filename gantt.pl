@@ -477,9 +477,11 @@ sub OutputSVG {
         &Polyline("black", 0, $ty,$all_x, $ty);
         &Text($tx, $ty + $HeightDay, $name);
         my $task_x = $current_x;
-        if ($start >= $min_day || $end  <= $max_day) {
+        print &date2str($start) . " " . &date2str($max_day) . "\n";
+        if (!($end < $min_day || $start > $max_day)) {
             my $wx0 = 0;
             my $wx1 = 0;
+            print "in\n";
             if ($start >= $min_day) {
                 $wx0 = &duration($min_day, $start) - 1;
             }
@@ -511,10 +513,12 @@ sub OutputSVG {
                     }
                 }
             }
+        } else { # 範囲外のとき
+            $progress = 100;
         }
 
         # イナズマ線
-        if (defined($now) && ($progress == 0 || $progress == 100)) {
+        if (defined($now) && ($progress == 100 || ($progress == 0 && $start > $now))) {
             if ($prev_x != $current_x) {
                 &Polyline("red", $prev_x, $ty - $HeightDay / 2,
                           $current_x, $ty,
