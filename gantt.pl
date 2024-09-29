@@ -476,24 +476,41 @@ sub OutputSVG {
         # タスク分割の横線
         &Polyline("black", 0, $ty,$all_x, $ty);
         &Text($tx, $ty + $HeightDay, $name);
-        my $wx0 = &duration($min_day, $start) - 1;
-        my $wx1 = &duration($min_day, $end) - 1;
-
-        #task all
-        &RoundBox($WidthDay * $wx0 + $WidthTask, $ty,
-                  $WidthDay * ($wx1 - $wx0 + 1) , $HeightDay, "slateblue");
-
-        #task current
-        if ($progress > 0) {
-            my $progress_day = &workdays($start, $end) * $progress / 100;
-            my $current = 0;
-            if ($progress_day >= 1) {
-                $current = &duration($start, &add_workday($start, int($progress_day)));
+        my $task_x = $current_x;
+        if ($start >= $min_day || $end  <= $max_day) {
+            my $wx0 = 0;
+            my $wx1 = 0;
+            if ($start >= $min_day) {
+                $wx0 = &duration($min_day, $start) - 1;
             }
-            print "$name $progress_day $wx0 - $current\n";
-            &RoundBox($WidthDay * $wx0 + $WidthTask, $ty,
-                      $WidthDay * $current + int(($progress_day - int($progress_day)) * $WidthDay), $HeightDay, "green");
+            if ($end <= $max_day) {
+                $wx1 = &duration($min_day, $end) - 1;
+            } else {
+                $wx1 = &duration($min_day, $max_day) - 1;
+            }
 
+            #task all
+            &RoundBox($WidthDay * $wx0 + $WidthTask, $ty,
+                      $WidthDay * ($wx1 - $wx0 + 1) , $HeightDay, "slateblue");
+
+            #task current
+            if ($progress > 0) {
+                my $progress_day = &workdays($start, $end) * $progress / 100;
+                my $current = 0;
+                if ($progress_day >= 1) {
+                    my $pday = &add_workday($start, int($progress_day));
+                    if ($pday > $min_day) {
+                        $current = &duration($start, $pday);
+                        #print "$name $progress_day $wx0 - $current\n";
+                        &RoundBox($WidthDay * $wx0 + $WidthTask, $ty,
+                                  $WidthDay * $current + int(($progress_day - int($progress_day)) * $WidthDay), $HeightDay,
+                                  "green");
+                        $task_x = $WidthDay * ($wx0 + $current) +
+                            int(($progress_day - int($progress_day)) * $WidthDay)
+                            + $WidthTask;
+                    }
+                }
+            }
         }
 
         # イナズマ線
@@ -507,9 +524,6 @@ sub OutputSVG {
             }
             $prev_x = $current_x;
         } else {
-            my $task_x = $WidthDay * ($wx0 + $current) +
-                int(($progress_day - int($progress_day)) * $WidthDay) +
-                $WidthTask;
             if ($prev_x != $current_x) {
                 &Polyline("red", $prev_x, $ty - $HeightDay /2,
                           $task_x, $ty + $HeightDay /2);
