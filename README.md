@@ -7,7 +7,6 @@ Create gantt chart from text
   Intall packages below.
 
     cpan install Time::Moment
-    cpan install
     cpan install Text::VisualWidth::PP
 
 ## usage
@@ -23,13 +22,13 @@ Create gantt chart from text
 
     gantt.pl sample.txt
 
-  get resut
+   get below
 
     $ ./gantt.pl sample.txt
     schedule : 11/11 11/18
-    task1    : __--- --___
-    task2    : _**-- -____
-    task3    : _____ __--_
-
+    task1    : __=== ==___
+    task2    : _**== =____
+    task3    : _____ __**_
 
    Option -c is ANSI color
+   Option -o <file_name> is output SVG
