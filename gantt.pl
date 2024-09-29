@@ -364,7 +364,7 @@ sub TextDate {
     my ($x, $y, $t) = @_;
     my ($text) = date2str_short($t);
 	print OUT <<END_OF_DATA;
-        <text text-anchor="start" dominant-baseline="text-after-edge" x="$x" y="$y" font-size="$FontDate" font-family="$FontFamily" >
+        <text text-anchor="start" dominant-baseline="text-after-edge" x="$x" y="$y" font-size="$FontDate" font-family="$FontFamily" fill="blue" >
             $text
         </text>
 END_OF_DATA
@@ -527,8 +527,8 @@ sub OutputSVG {
     for (my $ix = 0; $ix < $x; $ix ++) {
         my $d = $min_day->plus_days($ix);
         if (! &is_workday($d)) {
-            &BoxF($WidthTask + $ix * $WidthDay, 0,
-                  $WidthDay, $all_y, "gray");
+            &BoxF($WidthTask + $ix * $WidthDay, $HeightDay,
+                  $WidthDay, $all_y - $HeightDay, "gray");
         }
     }
 
