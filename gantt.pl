@@ -1,4 +1,9 @@
 #!/usr/bin/perl
+#!/opt/homebrew/bin/perl
+# MIT License
+# Copyright (c) 2019 TAKESHI MIURA
+# https://github.com/tksmiura/gantt
+
 #use DateTime;
 
 #https://metacpan.org/pod/Time::Moment
