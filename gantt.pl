@@ -768,7 +768,7 @@ foreach $infile (@ARGV) {
                 } elsif (defined($now) && $day == $now) {
                     print "|";
                 } elsif ($day >= $start && $day <= $end) {
-                    print "-";
+                    print "=";
                 } else {
                     print "_";
                 }
