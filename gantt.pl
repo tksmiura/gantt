@@ -359,13 +359,31 @@ sub Text {
 END_OF_DATA
 }
 
-#文字列表示（通常サイズ）
+#文字列表示（日付 mm/dd）
 sub TextDate {
     my ($x, $y, $t) = @_;
-    my ($text2) = date2str_short($t);
+    my ($text) = date2str_short($t);
 	print OUT <<END_OF_DATA;
         <text text-anchor="start" dominant-baseline="text-after-edge" x="$x" y="$y" font-size="$FontDate" font-family="$FontFamily" >
-            $text2
+            $text
+        </text>
+END_OF_DATA
+}
+
+#文字列表示
+sub TextMonth {
+    my ($x, $y, $t) = @_;
+    my $month = $t->month;
+    my $year  = $t->year;
+    my $text;
+    if ($month == 1) {
+        $text = "$year/$month";
+    } else {
+        $text = "$month";
+    }
+	print OUT <<END_OF_DATA;
+        <text text-anchor="start" dominant-baseline="text-after-edge" x="$x" y="$y" font-size="$FontDate" font-family="$FontFamily" fill="green" >
+            $text
         </text>
 END_OF_DATA
 }
@@ -430,6 +448,7 @@ sub OutputSVG {
         if ($d->day_of_month == 1) {
             $top = 0;
             $c = "green";
+            &TextMonth($WidthTask + $ix * $WidthDay, $top + $FontDate + 2, $d);
         }
         &Polyline($c,
                   $WidthTask + $ix * $WidthDay, $top,
@@ -513,7 +532,7 @@ sub OutputSVG {
         }
     }
 
-    # 日付見出し
+    # 日付見出し(週)
     for (my $ix = 0; $ix < $x; $ix += 7) {
         my $day = $min_day->plus_days($ix);
         &TextDate($WidthTask + $ix * $WidthDay, $HeightDay, $day);
