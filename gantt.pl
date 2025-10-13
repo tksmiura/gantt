@@ -421,6 +421,9 @@ sub OutputSVG {
     my $y = @task;
     my $x = &duration($min_day, $max_day);
 
+    my $current_x = $WidthTask;
+    my $prev_x = $current_x;
+
     # FILEを開く(utf8)
     open(OUT, '>:encoding(UTF-8)', $file) || die "Can't open to $file\n";
 
@@ -430,7 +433,6 @@ sub OutputSVG {
     # 全体の枠
     my $all_x = $WidthTask + $WidthDay * $x;
     my $all_y = $HeightDay * ($y + 1);
-    my $current_x = 0;
 
     &StartPage($all_x, $all_y);
     &Box(0, 0, $all_x, $all_y, "black");
@@ -475,7 +477,6 @@ sub OutputSVG {
         # タスク分割の横線
         &Polyline("black", 0, $ty,$all_x, $ty);
         &Text($tx, $ty + $HeightDay, $name);
-        my $task_x = $current_x;
         #print &date2str($start) . " " . &date2str($max_day) . "\n";
         if (!($end < $min_day || $start > $max_day)) {
             my $wx0 = 0;
@@ -516,28 +517,30 @@ sub OutputSVG {
         }
 
         # イナズマ線
-        if (defined($now) && ($progress == 100 || ($progress == 0 && $start > $now))) {
-            if ($prev_x != $current_x) {
-                &Polyline("red", $prev_x, $ty - $HeightDay / 2,
-                          $current_x, $ty,
-                          $current_x, $ty + $HeightDay);
+        if (defined($now)) {
+            if ($progress == 100 || ($progress == 0 && $start > $now)) {   # 完了あるいは開始前
+                if ($prev_x != $current_x) {
+                    &Polyline("red", $prev_x, $ty - $HeightDay / 2,
+                              $current_x, $ty,
+                              $current_x, $ty + $HeightDay);
+                } else {
+                    &Polyline("red", $current_x, $ty, $current_x, $ty + $HeightDay);
+                }
+                $prev_x = $current_x;
             } else {
-                &Polyline("red", $current_x, $ty, $current_x, $ty + $HeightDay);
+                if ($prev_x != $current_x) {
+                    &Polyline("red", $prev_x, $ty - $HeightDay /2,
+                              $task_x, $ty + $HeightDay /2);
+                } else {
+                    &Polyline("red", $prev_x, $ty,
+                              $task_x, $ty + $HeightDay /2);
+                }
+                $prev_x = $task_x;
             }
-            $prev_x = $current_x;
-        } else {
-            if ($prev_x != $current_x) {
-                &Polyline("red", $prev_x, $ty - $HeightDay /2,
-                          $task_x, $ty + $HeightDay /2);
-            } else {
-                &Polyline("red", $prev_x, $ty,
-                          $task_x, $ty + $HeightDay /2);
-            }
-            $prev_x = $task_x;
         }
 
         $ty += $HeightDay;
-    }
+    } # task loop
 
     # 非稼働日
     for (my $ix = 0; $ix < $x; $ix ++) {
@@ -695,6 +698,11 @@ foreach $infile (@ARGV) {
     $min_day = $min_day->minus_days($day - 1);
     $day = $max_day->day_of_week;
     $max_day = $max_day->plus_days(7 - $day);
+
+    if (defined($now) && ($now < $min_day || $max_day < $now)) {
+        print "Warning: now day is out of range\n";
+    }
+
 
     # SVGでファイルを作成
     if ($opt_svg) {
